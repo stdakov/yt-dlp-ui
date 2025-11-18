@@ -14,7 +14,7 @@ COPY --from=builder /app/target/release/yt-dlp-ui /usr/local/bin/yt-dlp-ui
 ENV DATA_DIR=/data
 ENV DOWNLOADS_DIR=/data/downloads
 ENV ARCHIVES_DIR=/data/archives
-ENV BIND_ADDR=0.0.0.0:8080
+ENV BIND_ADDR=0.0.0.0:8090
 VOLUME ["/data"]
-EXPOSE 8080
+EXPOSE 8090
 CMD ["yt-dlp-ui"]

@@ -62,14 +62,20 @@ async fn main() -> Result<(), AppError> {
         .with_state(state.clone());
 
     let addr: SocketAddr = std::env::var("BIND_ADDR")
-        .unwrap_or_else(|_| "0.0.0.0:8080".to_string())
+        .unwrap_or_else(|_| "0.0.0.0:8090".to_string())
         .parse()?;
     info!("Starting server on {}", addr);
-    let listener = TcpListener::bind(addr).await?;
+    let listener = match TcpListener::bind(addr).await {
+        Ok(l) => l,
+        Err(e) => {
+            error!("Failed to bind to {}: {}", addr, e);
+            return Err(AppError::Other(format!("Bind failed: {}", e)));
+        }
+    };
+
     axum::serve(listener, app)
         .await
-        .map_err(|err| AppError::Other(err.to_string()))?;
-    Ok(())
+        .map_err(|err| AppError::Other(err.to_string()))
 }
 
 #[derive(Clone)]

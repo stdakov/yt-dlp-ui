@@ -4,9 +4,9 @@ services:
   yt-dlp-ui:
     build: .
     ports:
-      - "8081:8080"
+      - "8090:8090"
     environment:
-      BIND_ADDR: "0.0.0.0:8080"
+      BIND_ADDR: "0.0.0.0:8090"
       DATA_DIR: /data
       DOWNLOADS_DIR: /data/downloads
       ARCHIVES_DIR: /data/archives
