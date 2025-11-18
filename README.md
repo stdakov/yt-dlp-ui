@@ -56,3 +56,15 @@ Key environment variables (all optional, but handy when invoking `docker run`/`d
 | `BIND_ADDR`     | Listen address/port                         | `0.0.0.0:8080`    |
 
 Inside the UI, **Settings → Storage folders** lets you adjust the same directories at runtime. Any paths provided via environment variables override defaults immediately, so new containers can set their main download folder directly in the `docker run` command.
+
+### Docker Compose
+
+A ready-to-use [`docker-compose.yml`](docker-compose.yml) is included. It mounts the repository `./data` folder into `/data` inside the container and exposes port `8080`.
+
+Build and start:
+
+```bash
+docker compose up --build
+```
+
+To run in the background use `docker compose up -d`, and stop via `docker compose down`. Adjust volumes or ports inside the compose file to match your storage layout.
