@@ -106,6 +106,8 @@ struct AppConfig {
     settings_path: PathBuf,
     schedules_path: PathBuf,
     album_schedules: Arc<RwLock<Vec<AlbumSchedule>>>,
+    album_sources_path: PathBuf,
+    album_sources: Arc<RwLock<HashMap<String, String>>>,
 }
 
 impl AppConfig {
@@ -118,6 +120,7 @@ impl AppConfig {
             .unwrap_or_else(|_| PathBuf::from("yt-dlp"));
         let settings_path = data_dir.join("settings.json");
         let schedules_path = data_dir.join("schedules.json");
+        let album_sources_path = data_dir.join("album_sources.json");
         let downloads_override = std::env::var("DOWNLOADS_DIR").ok().map(PathBuf::from);
         let archives_override = std::env::var("ARCHIVES_DIR").ok().map(PathBuf::from);
         let default_dirs = DirectoryConfig {
@@ -141,6 +144,12 @@ impl AppConfig {
             } else {
                 Vec::new()
             };
+        let album_sources: HashMap<String, String> =
+            if let Ok(contents) = std::fs::read_to_string(&album_sources_path) {
+                serde_json::from_str(&contents).unwrap_or_default()
+            } else {
+                HashMap::new()
+            };
         Ok(Self {
             data_dir,
             yt_dlp_path,
@@ -148,6 +157,8 @@ impl AppConfig {
             directories: Arc::new(RwLock::new(directories)),
             schedules_path,
             album_schedules: Arc::new(RwLock::new(schedules)),
+            album_sources_path,
+            album_sources: Arc::new(RwLock::new(album_sources)),
         })
     }
 
@@ -245,6 +256,34 @@ impl AppConfig {
         let serialized = serde_json::to_string_pretty(&schedules)?;
         fs::create_dir_all(&self.data_dir).await?;
         fs::write(&self.schedules_path, serialized).await?;
+        Ok(())
+    }
+
+    async fn album_playlist_url(&self, album: &str) -> Option<String> {
+        self.album_sources
+            .read()
+            .await
+            .get(album)
+            .cloned()
+    }
+
+    async fn set_album_playlist(
+        &self,
+        album: String,
+        playlist_url: String,
+    ) -> Result<(), AppError> {
+        {
+            let mut sources = self.album_sources.write().await;
+            sources.insert(album, playlist_url);
+        }
+        self.persist_album_sources().await
+    }
+
+    async fn persist_album_sources(&self) -> Result<(), AppError> {
+        let sources = self.album_sources.read().await.clone();
+        let serialized = serde_json::to_string_pretty(&sources)?;
+        fs::create_dir_all(&self.data_dir).await?;
+        fs::write(&self.album_sources_path, serialized).await?;
         Ok(())
     }
 }
@@ -532,6 +571,7 @@ struct AlbumTemplate {
     album: AlbumDetailInfo,
     nav_albums: Vec<AlbumNav>,
     schedule: Option<AlbumScheduleDisplay>,
+    default_playlist_url: Option<String>,
 }
 
 #[derive(Clone)]
@@ -719,6 +759,7 @@ async fn album_detail(
     let downloads_dir = state.config.downloads_dir().await;
     let album_info = gather_album_detail(downloads_dir.clone(), album.clone()).await?;
     let nav_albums = gather_nav_albums(downloads_dir).await?;
+    let default_playlist_url = state.config.album_playlist_url(&album).await;
     let schedule_display = state
         .config
         .schedule_for_album(&album)
@@ -739,6 +780,7 @@ async fn album_detail(
         album: album_info,
         nav_albums,
         schedule: schedule_display,
+        default_playlist_url,
     }))
 }
 
@@ -1005,14 +1047,19 @@ async fn run_download(
         job_mut.started_at = Utc::now();
     }
 
+    let playlist_title =
+        fetch_playlist_title(&config.yt_dlp_path, &config.data_dir, &playlist_url).await?;
+    if let Some(title) = playlist_title.as_ref() {
+        let album_name = sanitize_file_name(title.trim());
+        if let Err(err) = config
+            .set_album_playlist(album_name, playlist_url.clone())
+            .await
+        {
+            warn!("Failed to store playlist mapping: {}", err);
+        }
+    }
     let resolved_download_archive =
-        match resolve_download_archive_name(&download_archive_template, &playlist_url, &config).await {
-            Ok(name) => name,
-            Err(err) => {
-                warn!("Failed to resolve download archive name: {}", err);
-                download_archive_template.clone()
-            }
-        };
+        resolve_download_archive_name(&download_archive_template, playlist_title.as_deref());
 
     let mut command = Command::new(&config.yt_dlp_path);
     command.current_dir(&config.data_dir);
@@ -1208,21 +1255,18 @@ fn build_command_preview(
     parts.join(" ")
 }
 
-async fn resolve_download_archive_name(
+fn resolve_download_archive_name(
     template: &str,
-    playlist_url: &str,
-    config: &AppConfig,
-) -> Result<String, AppError> {
+    playlist_title: Option<&str>,
+) -> String {
     if template.trim().is_empty() || !template.contains("%(playlist_title)s") {
-        return Ok(template.to_string());
+        return template.to_string();
     }
-    if let Some(title) =
-        fetch_playlist_title(&config.yt_dlp_path, &config.data_dir, playlist_url).await?
-    {
+    if let Some(title) = playlist_title {
         let safe_title = sanitize_file_name(title.trim());
-        Ok(template.replace("%(playlist_title)s", &safe_title))
+        template.replace("%(playlist_title)s", &safe_title)
     } else {
-        Ok(template.to_string())
+        template.to_string()
     }
 }
 

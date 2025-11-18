@@ -45,7 +45,7 @@
         <form method="post" action="/albums/{{ album.encoded_name }}/schedule" class="form-grid auto-schedule-form">
             <label>
                 Playlist URL
-                <input type="url" name="playlist_url" placeholder="https://youtube.com/playlist?list=..." required>
+                <input type="url" name="playlist_url" placeholder="https://youtube.com/playlist?list=..." value="{% if let Some(url) = default_playlist_url %}{{ url }}{% endif %}" required>
             </label>
             <label>
                 Frequency
