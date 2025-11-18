@@ -26,7 +26,7 @@ use tokio::{
     sync::RwLock,
 };
 use tower_http::services::ServeDir;
-use tracing::{error, info};
+use tracing::{error, info, warn};
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 use urlencoding::encode;
 use uuid::Uuid;
@@ -673,7 +673,7 @@ async fn run_download(
         extract_audio,
         audio_format,
         audio_quality,
-        download_archive,
+        download_archive: download_archive_template,
         ignore_errors,
         embed_metadata,
         embed_thumbnail,
@@ -686,6 +686,15 @@ async fn run_download(
         job_mut.status = JobStatus::Running;
         job_mut.started_at = Utc::now();
     }
+
+    let resolved_download_archive =
+        match resolve_download_archive_name(&download_archive_template, &playlist_url, &config).await {
+            Ok(name) => name,
+            Err(err) => {
+                warn!("Failed to resolve download archive name: {}", err);
+                download_archive_template.clone()
+            }
+        };
 
     let mut command = Command::new(&config.yt_dlp_path);
     command.current_dir(&config.data_dir);
@@ -701,10 +710,10 @@ async fn run_download(
         command.arg("--audio-format").arg(audio_format);
         command.arg("--audio-quality").arg(audio_quality);
     }
-    if !download_archive.trim().is_empty() {
+    if !resolved_download_archive.trim().is_empty() {
         let archive_path = directories
             .archives_dir
-            .join(sanitize_file_name(&download_archive));
+            .join(sanitize_file_name(&resolved_download_archive));
         command.arg("--download-archive").arg(archive_path);
     }
     if ignore_errors {
@@ -849,6 +858,51 @@ fn build_command_preview(
     parts.push(output_path);
     parts.push(form.playlist_url.clone());
     parts.join(" ")
+}
+
+async fn resolve_download_archive_name(
+    template: &str,
+    playlist_url: &str,
+    config: &AppConfig,
+) -> Result<String, AppError> {
+    if template.trim().is_empty() || !template.contains("%(playlist_title)s") {
+        return Ok(template.to_string());
+    }
+    if let Some(title) =
+        fetch_playlist_title(&config.yt_dlp_path, &config.data_dir, playlist_url).await?
+    {
+        let safe_title = sanitize_file_name(title.trim());
+        Ok(template.replace("%(playlist_title)s", &safe_title))
+    } else {
+        Ok(template.to_string())
+    }
+}
+
+async fn fetch_playlist_title(
+    yt_dlp_path: &Path,
+    data_dir: &Path,
+    playlist_url: &str,
+) -> Result<Option<String>, AppError> {
+    let mut command = Command::new(yt_dlp_path);
+    command
+        .current_dir(data_dir)
+        .arg("--print")
+        .arg("%(playlist_title)s")
+        .arg("--playlist-items")
+        .arg("1")
+        .arg(playlist_url);
+    command.stdout(Stdio::piped());
+    command.stderr(Stdio::null());
+    let output = command.output().await?;
+    if !output.status.success() {
+        return Ok(None);
+    }
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let title = stdout
+        .lines()
+        .find(|line| !line.trim().is_empty())
+        .map(|line| line.trim().to_string());
+    Ok(title)
 }
 
 async fn gather_albums(dir: PathBuf) -> Result<Vec<AlbumInfo>, AppError> {
