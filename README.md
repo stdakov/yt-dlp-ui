@@ -15,7 +15,7 @@ The server listens on `BIND_ADDR` (default `0.0.0.0:8080`). Files, archives, and
 1. Install system dependencies: `sudo apt install build-essential pkg-config libssl-dev` (adjust the package manager for your distro) plus [Rustup](https://rustup.rs/) for the Rust toolchain.
 2. Clone the repository and build it in release mode:
    ```bash
-   git clone https://github.com/stanislav/yt-dlp-ui.git
+   git clone https://github.com/stdakov/yt-dlp-ui.git
    cd yt-dlp-ui
    cargo build --release
    ```
@@ -48,11 +48,11 @@ docker run --rm -p 8080:8080 \
 
 Key environment variables (all optional, but handy when invoking `docker run`/`docker compose`):
 
-| Variable        | Purpose                                      | Default in image        |
-|-----------------|----------------------------------------------|-------------------------|
-| `DATA_DIR`      | Root for app state (`settings.json`)         | `/data`                 |
-| `DOWNLOADS_DIR` | Folder where yt-dlp saves media              | `/data/downloads`       |
-| `ARCHIVES_DIR`  | Folder that stores yt-dlp download archives  | `/data/archives`        |
-| `BIND_ADDR`     | Listen address/port                          | `0.0.0.0:8080`          |
+| Variable        | Purpose                                     | Default in image  |
+| --------------- | ------------------------------------------- | ----------------- |
+| `DATA_DIR`      | Root for app state (`settings.json`)        | `/data`           |
+| `DOWNLOADS_DIR` | Folder where yt-dlp saves media             | `/data/downloads` |
+| `ARCHIVES_DIR`  | Folder that stores yt-dlp download archives | `/data/archives`  |
+| `BIND_ADDR`     | Listen address/port                         | `0.0.0.0:8080`    |
 
 Inside the UI, **Settings → Storage folders** lets you adjust the same directories at runtime. Any paths provided via environment variables override defaults immediately, so new containers can set their main download folder directly in the `docker run` command.
