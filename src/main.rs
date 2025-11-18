@@ -61,6 +61,7 @@ async fn main() -> Result<(), AppError> {
         .route("/albums/:album", get(album_detail))
         .route("/albums/:album/files/delete", post(delete_file))
         .route("/albums/:album/delete", post(delete_album))
+        .route("/albums/:album/rerun", post(rerun_album))
         .route("/albums/:album/schedule", post(set_album_schedule))
         .route(
             "/albums/:album/schedule/delete",
@@ -809,6 +810,25 @@ async fn delete_album(
         fs::remove_dir_all(&album_path).await?;
     }
     Ok(Redirect::to("/"))
+}
+
+async fn rerun_album(
+    AxumPath(album): AxumPath<String>,
+    State(state): State<AppState>,
+) -> Result<impl IntoResponse, AppError> {
+    let playlist_url = state
+        .config
+        .album_playlist_url(&album)
+        .await
+        .ok_or_else(|| {
+            AppError::Invalid("No playlist URL stored for this album. Run a manual download first.".into())
+        })?;
+    let mut form = DownloadForm::default();
+    form.playlist_url = playlist_url;
+    form.download_archive = format!("downloaded_{}.txt", album);
+    form.output_template = format!("{}/%(playlist_index)02d - %(title)s.%(ext)s", album);
+    let job_id = spawn_download(form, state.clone()).await?;
+    Ok(Redirect::to(&format!("/jobs/{}", job_id)))
 }
 
 async fn set_album_schedule(

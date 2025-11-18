@@ -313,6 +313,13 @@ th {
     gap: 1rem;
 }
 
+.album-actions {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    align-items: center;
+}
+
 pre {
     background: #111827;
     color: #f9fafb;

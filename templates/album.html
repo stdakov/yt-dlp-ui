@@ -9,9 +9,16 @@
             <h2>{{ album.name }}</h2>
             <p>{{ album.files.len() }} files &middot; <span data-bytes="{{ album.total_size }}">{{ album.total_size_display }}</span></p>
         </div>
+        <div class="album-actions">
+            {% if let Some(_) = default_playlist_url %}
+            <form method="post" action="/albums/{{ album.encoded_name }}/rerun">
+                <button type="submit">Re-run download</button>
+            </form>
+            {% endif %}
         <form method="post" action="/albums/{{ album.encoded_name }}/delete" onsubmit="return confirm('Delete this entire album?');">
             <button type="submit" class="danger">Delete album</button>
         </form>
+        </div>
     </div>
 </section>
 
