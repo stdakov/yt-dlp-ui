@@ -1,0 +1,380 @@
+* {
+    box-sizing: border-box;
+}
+
+body {
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    margin: 0;
+    padding: 0 1rem 2rem;
+    background: radial-gradient(circle at top, #e0edff 0%, #f5f5f5 45%, #f9fafb 100%);
+    color: #1f2933;
+}
+
+a {
+    color: #2563eb;
+    text-decoration: none;
+}
+
+a:hover {
+    text-decoration: underline;
+}
+
+.page-header {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    align-items: flex-start;
+    padding: 1.5rem 0;
+    gap: 1rem;
+}
+
+.page-header h1 {
+    margin: 0;
+}
+
+.subtitle {
+    margin: 0.25rem 0 0;
+    color: #6b7280;
+}
+
+.primary-links {
+    display: flex;
+    gap: 0.75rem;
+    margin-top: 0.5rem;
+    flex-wrap: wrap;
+}
+
+.primary-links a {
+    font-weight: 600;
+    color: #1f2933;
+}
+
+.primary-links a:hover {
+    color: #111827;
+}
+
+.albums-nav {
+    min-width: 200px;
+}
+
+.albums-nav ul {
+    list-style: none;
+    padding: 0;
+    margin: 0.5rem 0 0;
+    max-height: 200px;
+    overflow-y: auto;
+}
+
+.albums-nav li {
+    margin: 0.25rem 0;
+}
+
+.albums-nav .empty {
+    color: #9ca3af;
+}
+
+main {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+    width: min(1200px, 100%);
+    margin: 0 auto;
+}
+
+.card {
+    background: #fff;
+    border-radius: 0.75rem;
+    padding: 1.5rem;
+    border: 1px solid rgba(15, 23, 42, 0.08);
+    box-shadow: 0 10px 40px rgba(15, 23, 42, 0.08);
+}
+
+.hero-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    background: linear-gradient(135deg, rgba(99, 102, 241, 0.08), #ffffff);
+    padding: 2rem;
+    gap: 1.5rem;
+}
+
+.hero-intro {
+    max-width: 720px;
+    margin: 0 auto;
+}
+
+.hero-intro h2 {
+    margin: 0.25rem 0;
+    font-size: 2rem;
+}
+
+.hero-intro p {
+    margin: 0.35rem 0 0;
+    color: #475569;
+}
+
+.eyebrow {
+    text-transform: uppercase;
+    letter-spacing: 0.2em;
+    color: #6366f1;
+    font-weight: 700;
+    font-size: 0.75rem;
+    margin: 0;
+}
+
+.download-form {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1.5rem;
+}
+
+.primary-url {
+    width: 100%;
+    max-width: 640px;
+}
+
+.primary-url label {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    font-weight: 600;
+    color: #111827;
+}
+
+.primary-url-input {
+    width: 100%;
+    padding: 1rem 1.25rem;
+    border: 2px solid transparent;
+    border-radius: 999px;
+    font-size: 1.1rem;
+    background: #fff;
+    box-shadow: 0 5px 20px rgba(37, 99, 235, 0.1);
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.primary-url-input:focus {
+    outline: none;
+    border-color: #6366f1;
+    box-shadow: 0 10px 25px rgba(99, 102, 241, 0.2);
+}
+
+.form-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 1rem;
+}
+
+.form-grid .form-actions {
+    grid-column: 1 / -1;
+}
+
+.form-grid label {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    font-weight: 600;
+}
+
+.form-grid input[type="text"],
+.form-grid input[type="url"],
+.form-grid textarea {
+    width: 100%;
+    padding: 0.5rem 0.75rem;
+    border: 1px solid #d1d5db;
+    border-radius: 0.5rem;
+    font-size: 0.95rem;
+}
+
+.checkbox {
+    flex-direction: row;
+    align-items: center;
+    font-weight: 500;
+}
+
+.checkbox input {
+    margin-right: 0.5rem;
+}
+
+.advanced-settings {
+    grid-column: 1 / -1;
+    border: 1px solid #e5e7eb;
+    border-radius: 0.75rem;
+    padding: 0.75rem 1rem;
+    background: #f9fafb;
+    width: 100%;
+    max-width: 900px;
+    margin: 0 auto;
+}
+
+.advanced-settings summary {
+    cursor: pointer;
+    font-weight: 600;
+    color: #1f2933;
+}
+
+.advanced-settings[open] {
+    background: #fff;
+    box-shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
+}
+
+.advanced-content {
+    margin-top: 0.75rem;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 1rem;
+}
+
+.form-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.hero-actions {
+    justify-content: center;
+    flex-wrap: wrap;
+}
+
+button,
+.button {
+    border: none;
+    border-radius: 0.5rem;
+    padding: 0.6rem 1.2rem;
+    font-size: 0.95rem;
+    cursor: pointer;
+    background: #2563eb;
+    color: #fff;
+    font-weight: 600;
+    text-align: center;
+}
+
+.button {
+    display: inline-block;
+}
+
+button:hover,
+.button:hover {
+    opacity: 0.9;
+}
+
+.ghost {
+    background: transparent;
+    color: #2563eb;
+    border: 1px solid #2563eb;
+}
+
+.hero-actions .ghost {
+    border-color: rgba(255, 255, 255, 0.4);
+    color: #2563eb;
+}
+
+.danger {
+    background: #dc2626;
+    color: #fff;
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+th,
+td {
+    padding: 0.5rem;
+    border-bottom: 1px solid #e5e7eb;
+    text-align: left;
+}
+
+th {
+    font-size: 0.9rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: #6b7280;
+}
+
+.mono {
+    font-family: "JetBrains Mono", "SFMono-Regular", Consolas, monospace;
+    font-size: 0.85rem;
+}
+
+.wrap {
+    word-break: break-all;
+}
+
+.album-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 1rem;
+}
+
+pre {
+    background: #111827;
+    color: #f9fafb;
+    padding: 1rem;
+    border-radius: 0.5rem;
+    max-height: 400px;
+    overflow: auto;
+}
+
+.details-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1rem;
+}
+
+.details-grid .full {
+    grid-column: 1 / -1;
+}
+
+.status.running {
+    color: #0284c7;
+}
+
+.status.completed {
+    color: #16a34a;
+}
+
+.status.failed {
+    color: #dc2626;
+}
+
+.muted {
+    color: #6b7280;
+}
+
+.muted.small {
+    font-size: 0.85rem;
+}
+
+.archive-form textarea {
+    width: 100%;
+    margin-top: 0.75rem;
+    font-family: "JetBrains Mono", "SFMono-Regular", Consolas, monospace;
+}
+
+.settings-form {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    max-width: 600px;
+}
+
+.settings-form label {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    font-weight: 600;
+}
+
+.settings-form input[type="text"] {
+    width: 100%;
+    padding: 0.5rem 0.75rem;
+    border: 1px solid #d1d5db;
+    border-radius: 0.5rem;
+    font-size: 0.95rem;
+}

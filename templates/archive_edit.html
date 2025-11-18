@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+
+{% block title %}Archive {{ archive.name }}{% endblock %}
+
+{% block content %}
+<section class="card">
+    <h2>Edit archive file</h2>
+    <p class="muted">{{ archive.name }}</p>
+    <form method="post" action="/archives/{{ archive.encoded_name }}/edit" class="archive-form">
+        <textarea name="content" rows="20">{{ archive.content }}</textarea>
+        <div class="form-actions">
+            <button type="submit">Save changes</button>
+            <a class="button ghost" href="/">Back</a>
+        </div>
+    </form>
+    <p class="muted small">Each line represents a video ID that will be skipped by yt-dlp.</p>
+</section>
+{% endblock %}

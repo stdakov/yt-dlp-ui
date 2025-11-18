@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+
+{% block title %}Album {{ album.name }}{% endblock %}
+
+{% block content %}
+<section class="card">
+    <div class="album-header">
+        <div>
+            <h2>{{ album.name }}</h2>
+            <p>{{ album.files.len() }} files &middot; <span data-bytes="{{ album.total_size }}">{{ album.total_size_display }}</span></p>
+        </div>
+        <form method="post" action="/albums/{{ album.encoded_name }}/delete" onsubmit="return confirm('Delete this entire album?');">
+            <button type="submit" class="danger">Delete album</button>
+        </form>
+    </div>
+</section>
+
+<section class="card">
+    <h3>Files</h3>
+    {% if album.files.len() == 0 %}
+        <p>No files in this album.</p>
+    {% else %}
+    <table>
+        <thead>
+            <tr>
+                <th>Name</th>
+                <th>Size</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for file in album.files %}
+            <tr>
+                <td class="wrap">{{ file.name }}</td>
+                <td data-bytes="{{ file.size }}">{{ file.size_display }}</td>
+                <td>
+                    <form method="post" action="/albums/{{ album.encoded_name }}/files/delete" onsubmit="return confirm('Delete this file?');">
+                        <input type="hidden" name="file" value="{{ file.name }}">
+                        <button type="submit" class="ghost">Delete</button>
+                    </form>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% endif %}
+</section>
+{% endblock %}

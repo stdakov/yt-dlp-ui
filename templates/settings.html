@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+
+{% block title %}Settings{% endblock %}
+
+{% block content %}
+<section class="card">
+    <h2>Storage folders</h2>
+    <p class="muted">Choose where new downloads are saved and where yt-dlp archive files reside.</p>
+    <form method="post" action="/settings" class="settings-form">
+        <label>
+            Downloads directory
+            <input type="text" name="downloads_dir" value="{{ form.downloads_dir }}" required>
+        </label>
+        <label>
+            Archive directory
+            <input type="text" name="archives_dir" value="{{ form.archives_dir }}" required>
+        </label>
+        <div class="form-actions">
+            <button type="submit">Save changes</button>
+        </div>
+    </form>
+    <p class="muted small">Settings persist between restarts and apply to subsequent downloads.</p>
+</section>
+{% endblock %}

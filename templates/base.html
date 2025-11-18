@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{% block title %}yt-dlp UI{% endblock %}</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <header class="page-header">
+        <div>
+            <h1><a href="/">yt-dlp UI</a></h1>
+            <p class="subtitle">Manage playlists and downloads</p>
+            <div class="primary-links">
+                <a href="/">Dashboard</a>
+                <a href="/jobs">Jobs</a>
+                <a href="/settings">Settings</a>
+            </div>
+        </div>
+        <nav class="albums-nav">
+            <h2>Albums</h2>
+            <ul>
+                {% if nav_albums.len() == 0 %}
+                <li class="empty">No albums yet</li>
+                {% else %}
+                {% for album in nav_albums %}
+                <li><a href="/albums/{{ album.encoded_name }}">{{ album.name }}</a></li>
+                {% endfor %}
+                {% endif %}
+            </ul>
+        </nav>
+    </header>
+    <main>
+        {% block content %}{% endblock %}
+    </main>
+</body>
+</html>
