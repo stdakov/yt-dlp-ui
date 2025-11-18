@@ -33,6 +33,11 @@
         </div>
         {% endif %}
     </div>
+    {% if job.status.as_str() == "running" || job.status.as_str() == "pending" %}
+    <form method="post" action="/jobs/{{ job.id }}/stop" class="stop-job-form" onsubmit="return confirm('Stop this job?');">
+        <button type="submit" class="danger">Stop job</button>
+    </form>
+    {% endif %}
 </section>
 
 <section class="card">

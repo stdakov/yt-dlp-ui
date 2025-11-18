@@ -6,8 +6,7 @@ use axum::{
     routing::{get, post},
     Router,
 };
-use chrono::{DateTime, Utc};
-use futures::FutureExt;
+use chrono::{DateTime, TimeZone, Utc};
 use serde::{Deserialize, Deserializer, Serialize};
 use std::{
     collections::HashMap,
@@ -15,6 +14,7 @@ use std::{
     net::SocketAddr,
     path::{Path, PathBuf},
     process::Stdio,
+    str::FromStr,
     sync::Arc,
 };
 use thiserror::Error;
@@ -23,7 +23,8 @@ use tokio::{
     io::{AsyncBufReadExt, AsyncRead, BufReader},
     net::TcpListener,
     process::Command,
-    sync::RwLock,
+    sync::{watch, RwLock},
+    time::{sleep, Duration},
 };
 use tower_http::services::ServeDir;
 use tracing::{error, info, warn};
@@ -45,7 +46,10 @@ async fn main() -> Result<(), AppError> {
     let state = AppState {
         config,
         jobs: Arc::new(RwLock::new(HashMap::new())),
+        job_controls: Arc::new(RwLock::new(HashMap::new())),
     };
+
+    CronRunner::spawn(state.clone());
 
     let app = Router::new()
         .route("/", get(home))
@@ -53,10 +57,17 @@ async fn main() -> Result<(), AppError> {
         .route("/jobs", get(list_jobs))
         .route("/jobs/:job_id", get(job_detail))
         .route("/jobs/:job_id/log", get(job_log))
+        .route("/jobs/:job_id/stop", post(stop_job))
         .route("/albums/:album", get(album_detail))
         .route("/albums/:album/files/delete", post(delete_file))
         .route("/albums/:album/delete", post(delete_album))
+        .route("/albums/:album/schedule", post(set_album_schedule))
+        .route(
+            "/albums/:album/schedule/delete",
+            post(delete_album_schedule),
+        )
         .route("/archives/:name/edit", get(edit_archive).post(save_archive))
+        .route("/archives/:name/delete", post(delete_archive))
         .route("/settings", get(show_settings).post(update_settings))
         .nest_service("/static", ServeDir::new("static"))
         .with_state(state.clone());
@@ -82,6 +93,7 @@ async fn main() -> Result<(), AppError> {
 struct AppState {
     config: Arc<AppConfig>,
     jobs: JobStore,
+    job_controls: Arc<RwLock<HashMap<Uuid, watch::Sender<bool>>>>,
 }
 
 type JobStore = Arc<RwLock<HashMap<Uuid, Arc<RwLock<JobEntry>>>>>;
@@ -92,6 +104,8 @@ struct AppConfig {
     yt_dlp_path: PathBuf,
     directories: Arc<RwLock<DirectoryConfig>>,
     settings_path: PathBuf,
+    schedules_path: PathBuf,
+    album_schedules: Arc<RwLock<Vec<AlbumSchedule>>>,
 }
 
 impl AppConfig {
@@ -103,6 +117,7 @@ impl AppConfig {
             .map(PathBuf::from)
             .unwrap_or_else(|_| PathBuf::from("yt-dlp"));
         let settings_path = data_dir.join("settings.json");
+        let schedules_path = data_dir.join("schedules.json");
         let downloads_override = std::env::var("DOWNLOADS_DIR").ok().map(PathBuf::from);
         let archives_override = std::env::var("ARCHIVES_DIR").ok().map(PathBuf::from);
         let default_dirs = DirectoryConfig {
@@ -120,11 +135,19 @@ impl AppConfig {
         if let Some(custom) = archives_override {
             directories.archives_dir = custom;
         }
+        let schedules: Vec<AlbumSchedule> =
+            if let Ok(contents) = std::fs::read_to_string(&schedules_path) {
+                serde_json::from_str(&contents).unwrap_or_default()
+            } else {
+                Vec::new()
+            };
         Ok(Self {
             data_dir,
             yt_dlp_path,
             settings_path,
             directories: Arc::new(RwLock::new(directories)),
+            schedules_path,
+            album_schedules: Arc::new(RwLock::new(schedules)),
         })
     }
 
@@ -176,12 +199,135 @@ impl AppConfig {
         fs::write(&self.settings_path, serialized).await?;
         Ok(())
     }
+
+    async fn schedules_snapshot(&self) -> Vec<AlbumSchedule> {
+        self.album_schedules.read().await.clone()
+    }
+
+    async fn schedule_for_album(&self, album: &str) -> Option<AlbumSchedule> {
+        self.album_schedules
+            .read()
+            .await
+            .iter()
+            .find(|s| s.album == album)
+            .cloned()
+    }
+
+    async fn upsert_schedule(&self, schedule: AlbumSchedule) -> Result<(), AppError> {
+        let mut schedules = self.album_schedules.write().await;
+        if let Some(existing) = schedules.iter_mut().find(|s| s.album == schedule.album) {
+            *existing = schedule;
+        } else {
+            schedules.push(schedule);
+        }
+        drop(schedules);
+        self.persist_schedules().await
+    }
+
+    async fn clear_schedule(&self, album: &str) -> Result<(), AppError> {
+        let mut schedules = self.album_schedules.write().await;
+        schedules.retain(|s| s.album != album);
+        drop(schedules);
+        self.persist_schedules().await
+    }
+
+    async fn mark_schedule_run(&self, album: &str, ts: DateTime<Utc>) -> Result<(), AppError> {
+        let mut schedules = self.album_schedules.write().await;
+        if let Some(schedule) = schedules.iter_mut().find(|s| s.album == album) {
+            schedule.last_run_ts = Some(ts.timestamp());
+        }
+        drop(schedules);
+        self.persist_schedules().await
+    }
+
+    async fn persist_schedules(&self) -> Result<(), AppError> {
+        let schedules = self.album_schedules.read().await.clone();
+        let serialized = serde_json::to_string_pretty(&schedules)?;
+        fs::create_dir_all(&self.data_dir).await?;
+        fs::write(&self.schedules_path, serialized).await?;
+        Ok(())
+    }
 }
 
 #[derive(Clone, Serialize, Deserialize)]
 struct DirectoryConfig {
     downloads_dir: PathBuf,
     archives_dir: PathBuf,
+}
+
+#[derive(Clone, Serialize, Deserialize, Debug)]
+struct AlbumSchedule {
+    album: String,
+    playlist_url: String,
+    frequency: ScheduleFrequency,
+    last_run_ts: Option<i64>,
+}
+
+impl AlbumSchedule {
+    fn last_run(&self) -> Option<DateTime<Utc>> {
+        self.last_run_ts
+            .and_then(|ts| Utc.timestamp_opt(ts, 0).single())
+    }
+
+    fn is_due(&self, now: DateTime<Utc>) -> bool {
+        match self.last_run() {
+            Some(last) => last + self.frequency.chrono_duration() <= now,
+            None => true,
+        }
+    }
+
+    fn next_run_display(&self) -> String {
+        let base = self
+            .last_run()
+            .unwrap_or_else(|| Utc::now() - self.frequency.chrono_duration());
+        let next = base + self.frequency.chrono_duration();
+        next.format("%Y-%m-%d %H:%M UTC").to_string()
+    }
+}
+
+#[derive(Clone, Copy, Serialize, Deserialize, Debug, PartialEq, Eq)]
+#[serde(rename_all = "lowercase")]
+enum ScheduleFrequency {
+    Hourly,
+    Daily,
+    Weekly,
+}
+
+impl ScheduleFrequency {
+    fn chrono_duration(self) -> chrono::Duration {
+        match self {
+            ScheduleFrequency::Hourly => chrono::Duration::hours(1),
+            ScheduleFrequency::Daily => chrono::Duration::days(1),
+            ScheduleFrequency::Weekly => chrono::Duration::weeks(1),
+        }
+    }
+
+    fn as_str(self) -> &'static str {
+        match self {
+            ScheduleFrequency::Hourly => "Hourly",
+            ScheduleFrequency::Daily => "Daily",
+            ScheduleFrequency::Weekly => "Weekly",
+        }
+    }
+}
+
+impl fmt::Display for ScheduleFrequency {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.as_str())
+    }
+}
+
+impl FromStr for ScheduleFrequency {
+    type Err = ();
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s.to_lowercase().as_str() {
+            "hourly" => Ok(ScheduleFrequency::Hourly),
+            "daily" => Ok(ScheduleFrequency::Daily),
+            "weekly" => Ok(ScheduleFrequency::Weekly),
+            _ => Err(()),
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -266,15 +412,23 @@ enum JobStatus {
     Running,
     Completed,
     Failed,
+    Cancelled,
 }
 
 impl fmt::Display for JobStatus {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.as_str())
+    }
+}
+
+impl JobStatus {
+    fn as_str(&self) -> &'static str {
         match self {
-            JobStatus::Pending => write!(f, "pending"),
-            JobStatus::Running => write!(f, "running"),
-            JobStatus::Completed => write!(f, "completed"),
-            JobStatus::Failed => write!(f, "failed"),
+            JobStatus::Pending => "pending",
+            JobStatus::Running => "running",
+            JobStatus::Completed => "completed",
+            JobStatus::Failed => "failed",
+            JobStatus::Cancelled => "cancelled",
         }
     }
 }
@@ -369,6 +523,14 @@ struct JobDetailTemplate {
 struct AlbumTemplate {
     album: AlbumDetailInfo,
     nav_albums: Vec<AlbumNav>,
+    schedule: Option<AlbumScheduleDisplay>,
+}
+
+#[derive(Clone)]
+struct AlbumScheduleDisplay {
+    playlist_url: String,
+    frequency_label: String,
+    next_run_display: String,
 }
 
 #[derive(Template)]
@@ -519,6 +681,28 @@ async fn job_log(
     Ok((StatusCode::OK, logs))
 }
 
+async fn stop_job(
+    AxumPath(job_id): AxumPath<Uuid>,
+    State(state): State<AppState>,
+) -> Result<impl IntoResponse, AppError> {
+    let job_arc = {
+        let jobs = state.jobs.read().await;
+        jobs.get(&job_id).cloned()
+    }
+    .ok_or(AppError::NotFound)?;
+    let sender = {
+        let controls = state.job_controls.read().await;
+        controls.get(&job_id).cloned()
+    }
+    .ok_or(AppError::Invalid("Job is not currently running".into()))?;
+    job_arc
+        .write()
+        .await
+        .push_line("Cancellation requested by user.");
+    let _ = sender.send(true);
+    Ok(Redirect::to(&format!("/jobs/{}", job_id)))
+}
+
 async fn album_detail(
     AxumPath(album): AxumPath<String>,
     State(state): State<AppState>,
@@ -526,9 +710,24 @@ async fn album_detail(
     let downloads_dir = state.config.downloads_dir().await;
     let album_info = gather_album_detail(downloads_dir.clone(), album.clone()).await?;
     let nav_albums = gather_nav_albums(downloads_dir).await?;
+    let schedule_display = state
+        .config
+        .schedule_for_album(&album)
+        .await
+        .map(|schedule| {
+            let playlist_url = schedule.playlist_url.clone();
+            let frequency_label = schedule.frequency.as_str().to_string();
+            let next_run_display = schedule.next_run_display();
+            AlbumScheduleDisplay {
+                playlist_url,
+                frequency_label,
+                next_run_display,
+            }
+        });
     Ok(HtmlTemplate(AlbumTemplate {
         album: album_info,
         nav_albums,
+        schedule: schedule_display,
     }))
 }
 
@@ -559,6 +758,37 @@ async fn delete_album(
         fs::remove_dir_all(&album_path).await?;
     }
     Ok(Redirect::to("/"))
+}
+
+async fn set_album_schedule(
+    AxumPath(album): AxumPath<String>,
+    State(state): State<AppState>,
+    Form(form): Form<ScheduleForm>,
+) -> Result<impl IntoResponse, AppError> {
+    let playlist_url = form.playlist_url.trim();
+    if playlist_url.is_empty() {
+        return Err(AppError::Invalid(
+            "Playlist URL is required for scheduling".into(),
+        ));
+    }
+    let frequency = ScheduleFrequency::from_str(&form.frequency)
+        .map_err(|_| AppError::Invalid("Invalid frequency".into()))?;
+    let schedule = AlbumSchedule {
+        album: album.clone(),
+        playlist_url: playlist_url.to_string(),
+        frequency,
+        last_run_ts: None,
+    };
+    state.config.upsert_schedule(schedule).await?;
+    Ok(Redirect::to(&format!("/albums/{}", encode(&album))))
+}
+
+async fn delete_album_schedule(
+    AxumPath(album): AxumPath<String>,
+    State(state): State<AppState>,
+) -> Result<impl IntoResponse, AppError> {
+    state.config.clear_schedule(&album).await?;
+    Ok(Redirect::to(&format!("/albums/{}", encode(&album))))
 }
 
 async fn edit_archive(
@@ -595,6 +825,12 @@ struct DirectoryForm {
     archives_dir: String,
 }
 
+#[derive(Deserialize)]
+struct ScheduleForm {
+    playlist_url: String,
+    frequency: String,
+}
+
 async fn save_archive(
     AxumPath(name): AxumPath<String>,
     State(state): State<AppState>,
@@ -605,6 +841,18 @@ async fn save_archive(
     fs::write(&path, form.content).await?;
     let redirect = format!("/archives/{}/edit", encode(&name));
     Ok(Redirect::to(&redirect))
+}
+
+async fn delete_archive(
+    AxumPath(name): AxumPath<String>,
+    State(state): State<AppState>,
+) -> Result<impl IntoResponse, AppError> {
+    let archives_dir = state.config.archives_dir().await;
+    let path = validate_archive(&archives_dir, &name)?;
+    if path.exists() {
+        fs::remove_file(&path).await?;
+    }
+    Ok(Redirect::to("/"))
 }
 
 async fn show_settings(State(state): State<AppState>) -> Result<impl IntoResponse, AppError> {
@@ -650,13 +898,71 @@ async fn spawn_download(form: DownloadForm, state: AppState) -> Result<Uuid, App
         command_line,
     )));
     state.jobs.write().await.insert(id, job.clone());
+    let (cancel_tx, cancel_rx) = watch::channel(false);
+    state.job_controls.write().await.insert(id, cancel_tx);
     let config = state.config.clone();
-    tokio::spawn(run_download(form, config, directories, job).map(|res| {
-        if let Err(err) = res {
-            error!("Download task failed: {}", err);
+    let job_controls = state.job_controls.clone();
+    tokio::spawn(async move {
+        let result = run_download(form, config, directories, job, cancel_rx).await;
+        job_controls.write().await.remove(&id);
+        if let Err(err) = result {
+            error!("Download task {} failed: {}", id, err);
         }
-    }));
+    });
     Ok(id)
+}
+
+struct CronRunner {
+    state: AppState,
+}
+
+impl CronRunner {
+    fn spawn(state: AppState) {
+        tokio::spawn(async move {
+            let runner = CronRunner { state };
+            runner.run().await;
+        });
+    }
+
+    async fn run(self) {
+        loop {
+            if let Err(err) = self.tick().await {
+                error!("Cron runner tick failed: {}", err);
+            }
+            sleep(Duration::from_secs(60)).await;
+        }
+    }
+
+    async fn tick(&self) -> Result<(), AppError> {
+        let schedules = self.state.config.schedules_snapshot().await;
+        let now = Utc::now();
+        for schedule in schedules {
+            if schedule.is_due(now) {
+                if let Err(err) = self.run_schedule(&schedule).await {
+                    error!(
+                        "Scheduled download for album {} failed: {}",
+                        schedule.album, err
+                    );
+                }
+            }
+        }
+        Ok(())
+    }
+
+    async fn run_schedule(&self, schedule: &AlbumSchedule) -> Result<(), AppError> {
+        let mut form = DownloadForm::default();
+        form.playlist_url = schedule.playlist_url.clone();
+        form.download_archive = format!("downloaded_{}.txt", schedule.album);
+        form.output_template = format!("{}/%(playlist_index)02d - %(title)s.%(ext)s", schedule.album);
+        let result = spawn_download(form, self.state.clone()).await;
+        if result.is_ok() {
+            self.state
+                .config
+                .mark_schedule_run(&schedule.album, Utc::now())
+                .await?;
+        }
+        result.map(|_| ())
+    }
 }
 
 async fn run_download(
@@ -664,6 +970,7 @@ async fn run_download(
     config: Arc<AppConfig>,
     directories: DirectoryConfig,
     job: Arc<RwLock<JobEntry>>,
+    mut cancel_rx: watch::Receiver<bool>,
 ) -> Result<(), AppError> {
     let DownloadForm {
         playlist_url,
@@ -756,7 +1063,34 @@ async fn run_download(
     let stdout_task = stream_output(stdout, job.clone());
     let stderr_task = stream_output(stderr, job.clone());
 
-    let status = child.wait().await?;
+    let mut cancel_requested = false;
+    let status = loop {
+        if let Some(status) = child.try_wait()? {
+            break status;
+        }
+        tokio::select! {
+            changed = cancel_rx.changed(), if !cancel_requested => {
+                if changed.is_err() || !*cancel_rx.borrow() {
+                    continue;
+                }
+                cancel_requested = true;
+                job.write()
+                    .await
+                    .push_line("Stopping job… sending signal to yt-dlp.");
+                if let Err(err) = child.start_kill() {
+                    job.write()
+                        .await
+                        .push_line(format!("Failed to stop process: {}", err));
+                    let mut job_mut = job.write().await;
+                    job_mut.status = JobStatus::Failed;
+                    job_mut.finished_at = Some(Utc::now());
+                    job_mut.error = Some(format!("Failed to cancel: {}", err));
+                    return Err(AppError::Io(err));
+                }
+            }
+            _ = sleep(Duration::from_millis(200)) => {}
+        }
+    };
     if let Some(task) = stdout_task {
         let _ = task.await;
     }
@@ -766,7 +1100,10 @@ async fn run_download(
 
     let mut job_mut = job.write().await;
     job_mut.finished_at = Some(Utc::now());
-    if status.success() {
+    if cancel_requested {
+        job_mut.status = JobStatus::Cancelled;
+        job_mut.error = Some("Job cancelled by user".into());
+    } else if status.success() {
         job_mut.status = JobStatus::Completed;
     } else {
         job_mut.status = JobStatus::Failed;

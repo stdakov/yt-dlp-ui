@@ -180,7 +180,8 @@ main {
 
 .form-grid input[type="text"],
 .form-grid input[type="url"],
-.form-grid textarea {
+.form-grid textarea,
+.form-grid select {
     width: 100%;
     padding: 0.5rem 0.75rem;
     border: 1px solid #d1d5db;
@@ -343,6 +344,10 @@ pre {
     color: #dc2626;
 }
 
+.status.cancelled {
+    color: #6b7280;
+}
+
 .muted {
     color: #6b7280;
 }
@@ -355,6 +360,10 @@ pre {
     width: 100%;
     margin-top: 0.75rem;
     font-family: "JetBrains Mono", "SFMono-Regular", Consolas, monospace;
+}
+
+.stop-job-form {
+    margin-top: 1rem;
 }
 
 .settings-form {

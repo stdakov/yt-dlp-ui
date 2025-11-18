@@ -16,6 +16,36 @@
 </section>
 
 <section class="card">
+    <h3>Auto-updates</h3>
+    {% match schedule %}
+    {% when Some with (sched) %}
+        <p class="muted small">Playlist: <a href="{{ sched.playlist_url }}" target="_blank" rel="noopener">{{ sched.playlist_url }}</a></p>
+        <p>Runs {{ sched.frequency_label }} &middot; next run {{ sched.next_run_display }}</p>
+        <form method="post" action="/albums/{{ album.encoded_name }}/schedule/delete" onsubmit="return confirm('Disable automatic updates for this album?');">
+            <button type="submit" class="ghost">Disable schedule</button>
+        </form>
+    {% when None %}
+        <form method="post" action="/albums/{{ album.encoded_name }}/schedule" class="form-grid auto-schedule-form">
+            <label>
+                Playlist URL
+                <input type="url" name="playlist_url" placeholder="https://youtube.com/playlist?list=..." required>
+            </label>
+            <label>
+                Frequency
+                <select name="frequency">
+                    <option value="hourly">Hourly</option>
+                    <option value="daily" selected>Daily</option>
+                    <option value="weekly">Weekly</option>
+                </select>
+            </label>
+            <div class="form-actions">
+                <button type="submit">Enable auto-update</button>
+            </div>
+        </form>
+    {% endmatch %}
+</section>
+
+<section class="card">
     <h3>Files</h3>
     {% if album.files.len() == 0 %}
         <p>No files in this album.</p>

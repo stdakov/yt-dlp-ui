@@ -13,6 +13,9 @@
             <a class="button ghost" href="/">Back</a>
         </div>
     </form>
+    <form method="post" action="/archives/{{ archive.encoded_name }}/delete" onsubmit="return confirm('Delete this archive file? This cannot be undone.');">
+        <button type="submit" class="danger">Delete archive file</button>
+    </form>
     <p class="muted small">Each line represents a video ID that will be skipped by yt-dlp.</p>
 </section>
 {% endblock %}
