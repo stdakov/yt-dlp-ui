@@ -8,7 +8,7 @@ use axum::{
 };
 use chrono::{DateTime, Utc};
 use futures::FutureExt;
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize};
 use std::{
     collections::HashMap,
     fmt,
@@ -284,20 +284,20 @@ struct DownloadForm {
     playlist_url: String,
     format: String,
     extractor_args: String,
-    #[serde(default)]
+    #[serde(default, deserialize_with = "checkbox_bool")]
     force_ipv4: bool,
-    #[serde(default)]
+    #[serde(default, deserialize_with = "checkbox_bool")]
     extract_audio: bool,
     audio_format: String,
     audio_quality: String,
     download_archive: String,
-    #[serde(default)]
+    #[serde(default, deserialize_with = "checkbox_bool")]
     ignore_errors: bool,
-    #[serde(default)]
+    #[serde(default, deserialize_with = "checkbox_bool")]
     embed_metadata: bool,
-    #[serde(default)]
+    #[serde(default, deserialize_with = "checkbox_bool")]
     embed_thumbnail: bool,
-    #[serde(default)]
+    #[serde(default, deserialize_with = "checkbox_bool")]
     add_metadata: bool,
     parse_metadata: String,
     output_template: String,
@@ -325,6 +325,19 @@ impl Default for DownloadForm {
                 .to_string(),
         }
     }
+}
+
+fn checkbox_bool<'de, D>(deserializer: D) -> Result<bool, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let value = Option::<String>::deserialize(deserializer)?;
+    Ok(value
+        .map(|raw| {
+            let normalized = raw.trim().to_ascii_lowercase();
+            matches!(normalized.as_str(), "true" | "1" | "yes" | "on")
+        })
+        .unwrap_or(false))
 }
 
 #[derive(Template)]
