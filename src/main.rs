@@ -507,9 +507,7 @@ struct DownloadForm {
 impl Default for DownloadForm {
     fn default() -> Self {
         Self {
-            playlist_url:
-                "https://www.youtube.com/playlist?list=PLSIh1Vh0_In0Q270LXphs_RxuJBuCT2gy"
-                    .to_string(),
+            playlist_url: String::new(),
             format: r#"bestaudio[ext=m4a]/bestaudio/best"#.to_string(),
             extractor_args: "youtube:player_client=android".to_string(),
             force_ipv4: true,
