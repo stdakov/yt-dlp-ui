@@ -309,6 +309,14 @@ impl ScheduleFrequency {
             ScheduleFrequency::Weekly => "Weekly",
         }
     }
+
+    fn form_value(self) -> &'static str {
+        match self {
+            ScheduleFrequency::Hourly => "hourly",
+            ScheduleFrequency::Daily => "daily",
+            ScheduleFrequency::Weekly => "weekly",
+        }
+    }
 }
 
 impl fmt::Display for ScheduleFrequency {
@@ -531,6 +539,7 @@ struct AlbumScheduleDisplay {
     playlist_url: String,
     frequency_label: String,
     next_run_display: String,
+    frequency_value: String,
 }
 
 #[derive(Template)]
@@ -718,10 +727,12 @@ async fn album_detail(
             let playlist_url = schedule.playlist_url.clone();
             let frequency_label = schedule.frequency.as_str().to_string();
             let next_run_display = schedule.next_run_display();
+            let frequency_value = schedule.frequency.form_value().to_string();
             AlbumScheduleDisplay {
                 playlist_url,
                 frequency_label,
                 next_run_display,
+                frequency_value,
             }
         });
     Ok(HtmlTemplate(AlbumTemplate {

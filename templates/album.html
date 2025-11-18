@@ -19,8 +19,25 @@
     <h3>Auto-updates</h3>
     {% match schedule %}
     {% when Some with (sched) %}
-        <p class="muted small">Playlist: <a href="{{ sched.playlist_url }}" target="_blank" rel="noopener">{{ sched.playlist_url }}</a></p>
+        <p class="muted small">Current playlist: <a href="{{ sched.playlist_url }}" target="_blank" rel="noopener">{{ sched.playlist_url }}</a></p>
         <p>Runs {{ sched.frequency_label }} &middot; next run {{ sched.next_run_display }}</p>
+        <form method="post" action="/albums/{{ album.encoded_name }}/schedule" class="form-grid auto-schedule-form">
+            <label>
+                Playlist URL
+                <input type="url" name="playlist_url" value="{{ sched.playlist_url }}" required>
+            </label>
+            <label>
+                Frequency
+                <select name="frequency">
+                    <option value="hourly" {% if sched.frequency_value == "hourly" %}selected{% endif %}>Hourly</option>
+                    <option value="daily" {% if sched.frequency_value == "daily" %}selected{% endif %}>Daily</option>
+                    <option value="weekly" {% if sched.frequency_value == "weekly" %}selected{% endif %}>Weekly</option>
+                </select>
+            </label>
+            <div class="form-actions">
+                <button type="submit">Update schedule</button>
+            </div>
+        </form>
         <form method="post" action="/albums/{{ album.encoded_name }}/schedule/delete" onsubmit="return confirm('Disable automatic updates for this album?');">
             <button type="submit" class="ghost">Disable schedule</button>
         </form>
