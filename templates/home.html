@@ -4,163 +4,164 @@
 
 {% block content %}
 <section class="card hero-card">
-    <div class="hero-intro">
-        <p class="eyebrow">New download</p>
-        <h2>Grab videos in seconds</h2>
-        <p>Paste a YouTube video, playlist, or channel URL below to kick off a download job.</p>
+  <div class="hero-intro">
+    <p class="eyebrow">New download</p>
+    <h2>Grab videos in seconds</h2>
+    <p>Paste a video, playlist, or channel URL below to kick off a download job.</p>
+  </div>
+  <form method="post" action="/download" class="download-form">
+    <div class="primary-url">
+      <label>
+        <span>Playlist or URL</span>
+        <input class="primary-url-input" type="url" name="playlist_url" required
+          value="{{ form_defaults.playlist_url }}" placeholder="Playlist URL">
+      </label>
     </div>
-    <form method="post" action="/download" class="download-form">
-        <div class="primary-url">
-            <label>
-                <span>Playlist or URL</span>
-                <input class="primary-url-input" type="url" name="playlist_url" required value="{{ form_defaults.playlist_url }}" placeholder="Playlist URL">
-            </label>
-        </div>
-        <details class="advanced-settings">
-            <summary>Advanced options</summary>
-            <div class="advanced-content form-grid">
-                <label>
-                    Format selector (-f)
-                    <input type="text" name="format" value="{{ form_defaults.format }}">
-                </label>
-                <label>
-                    Extractor args
-                    <input type="text" name="extractor_args" value="{{ form_defaults.extractor_args }}">
-                </label>
-                <label class="checkbox">
-                    <input type="checkbox" name="force_ipv4" {% if form_defaults.force_ipv4 %}checked{% endif %}>
-                    Force IPv4
-                </label>
-                <label class="checkbox">
-                    <input type="checkbox" name="extract_audio" {% if form_defaults.extract_audio %}checked{% endif %}>
-                    Extract audio (-x)
-                </label>
-                <label>
-                    Audio format
-                    <input type="text" name="audio_format" value="{{ form_defaults.audio_format }}">
-                </label>
-                <label>
-                    Audio quality
-                    <input type="text" name="audio_quality" value="{{ form_defaults.audio_quality }}">
-                </label>
-                <label>
-                    Download archive file
-                    <input type="text" name="download_archive" value="{{ form_defaults.download_archive }}">
-                </label>
-                <label class="checkbox">
-                    <input type="checkbox" name="ignore_errors" {% if form_defaults.ignore_errors %}checked{% endif %}>
-                    Ignore errors
-                </label>
-                <label class="checkbox">
-                    <input type="checkbox" name="embed_metadata" {% if form_defaults.embed_metadata %}checked{% endif %}>
-                    Embed metadata
-                </label>
-                <label class="checkbox">
-                    <input type="checkbox" name="embed_thumbnail" {% if form_defaults.embed_thumbnail %}checked{% endif %}>
-                    Embed thumbnail
-                </label>
-                <label class="checkbox">
-                    <input type="checkbox" name="add_metadata" {% if form_defaults.add_metadata %}checked{% endif %}>
-                    Add metadata tags
-                </label>
-                <label>
-                    Parse metadata rule
-                    <input type="text" name="parse_metadata" value="{{ form_defaults.parse_metadata }}">
-                </label>
-                <label>
-                    Output template (-o)
-                    <input type="text" name="output_template" value="{{ form_defaults.output_template }}">
-                </label>
-            </div>
-        </details>
-        <div class="form-actions hero-actions">
-            <button type="submit">Start download</button>
-            <a class="button ghost" href="/jobs">View all jobs</a>
-        </div>
-    </form>
+    <details class="advanced-settings">
+      <summary>Advanced options</summary>
+      <div class="advanced-content form-grid">
+        <label>
+          Format selector (-f)
+          <input type="text" name="format" value="{{ form_defaults.format }}">
+        </label>
+        <label>
+          Extractor args
+          <input type="text" name="extractor_args" value="{{ form_defaults.extractor_args }}">
+        </label>
+        <label class="checkbox">
+          <input type="checkbox" name="force_ipv4" {% if form_defaults.force_ipv4 %}checked{% endif %}>
+          Force IPv4
+        </label>
+        <label class="checkbox">
+          <input type="checkbox" name="extract_audio" {% if form_defaults.extract_audio %}checked{% endif %}>
+          Extract audio (-x)
+        </label>
+        <label>
+          Audio format
+          <input type="text" name="audio_format" value="{{ form_defaults.audio_format }}">
+        </label>
+        <label>
+          Audio quality
+          <input type="text" name="audio_quality" value="{{ form_defaults.audio_quality }}">
+        </label>
+        <label>
+          Download archive file
+          <input type="text" name="download_archive" value="{{ form_defaults.download_archive }}">
+        </label>
+        <label class="checkbox">
+          <input type="checkbox" name="ignore_errors" {% if form_defaults.ignore_errors %}checked{% endif %}>
+          Ignore errors
+        </label>
+        <label class="checkbox">
+          <input type="checkbox" name="embed_metadata" {% if form_defaults.embed_metadata %}checked{% endif %}>
+          Embed metadata
+        </label>
+        <label class="checkbox">
+          <input type="checkbox" name="embed_thumbnail" {% if form_defaults.embed_thumbnail %}checked{% endif %}>
+          Embed thumbnail
+        </label>
+        <label class="checkbox">
+          <input type="checkbox" name="add_metadata" {% if form_defaults.add_metadata %}checked{% endif %}>
+          Add metadata tags
+        </label>
+        <label>
+          Parse metadata rule
+          <input type="text" name="parse_metadata" value="{{ form_defaults.parse_metadata }}">
+        </label>
+        <label>
+          Output template (-o)
+          <input type="text" name="output_template" value="{{ form_defaults.output_template }}">
+        </label>
+      </div>
+    </details>
+    <div class="form-actions hero-actions">
+      <button type="submit">Start download</button>
+      <a class="button ghost" href="/jobs">View all jobs</a>
+    </div>
+  </form>
 </section>
 
 <section class="card">
-    <h2>Downloaded albums</h2>
-    {% if albums.len() == 0 %}
-        <p>No albums downloaded yet.</p>
-    {% else %}
-    <table>
-        <thead>
-            <tr>
-                <th>Name</th>
-                <th>Files</th>
-                <th>Size</th>
-                <th></th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for album in albums %}
-            <tr>
-                <td>{{ album.name }}</td>
-                <td>{{ album.file_count }}</td>
-                <td data-bytes="{{ album.total_size }}">{{ album.total_size_display }}</td>
-                <td><a href="/albums/{{ album.encoded_name }}">Open</a></td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
-    {% endif %}
+  <h2>Downloaded albums</h2>
+  {% if albums.len() == 0 %}
+  <p>No albums downloaded yet.</p>
+  {% else %}
+  <table>
+    <thead>
+      <tr>
+        <th>Name</th>
+        <th>Files</th>
+        <th>Size</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for album in albums %}
+      <tr>
+        <td>{{ album.name }}</td>
+        <td>{{ album.file_count }}</td>
+        <td data-bytes="{{ album.total_size }}">{{ album.total_size_display }}</td>
+        <td><a href="/albums/{{ album.encoded_name }}">Open</a></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% endif %}
 </section>
 
 <section class="card">
-    <h2>Download archives</h2>
-    {% if archives.len() == 0 %}
-        <p>No archive files yet.</p>
-    {% else %}
-    <table>
-        <thead>
-            <tr>
-                <th>Name</th>
-                <th>Size</th>
-                <th></th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for archive in archives %}
-            <tr>
-                <td>{{ archive.name }}</td>
-                <td data-bytes="{{ archive.size }}">{{ archive.size_display }}</td>
-                <td><a href="/archives/{{ archive.encoded_name }}/edit">Edit</a></td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
-    {% endif %}
+  <h2>Download archives</h2>
+  {% if archives.len() == 0 %}
+  <p>No archive files yet.</p>
+  {% else %}
+  <table>
+    <thead>
+      <tr>
+        <th>Name</th>
+        <th>Size</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for archive in archives %}
+      <tr>
+        <td>{{ archive.name }}</td>
+        <td data-bytes="{{ archive.size }}">{{ archive.size_display }}</td>
+        <td><a href="/archives/{{ archive.encoded_name }}/edit">Edit</a></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% endif %}
 </section>
 
 <section class="card">
-    <h2>Recent jobs</h2>
-    {% if jobs.len() == 0 %}
-        <p>No jobs started yet.</p>
-    {% else %}
-    <table>
-        <thead>
-            <tr>
-                <th>ID</th>
-                <th>Status</th>
-                <th>Started</th>
-                <th>Finished</th>
-                <th></th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for job in jobs %}
-            <tr>
-                <td class="mono">{{ job.id }}</td>
-                <td>{{ job.status }}</td>
-                <td data-ts="{{ job.started_at }}">{{ job.started_at_display }}</td>
-                <td {% if let Some(ts) = job.finished_at %}data-ts="{{ ts }}"{% endif %}>{{ job.finished_at_display }}</td>
-                <td><a href="/jobs/{{ job.id }}">Open</a></td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
-    {% endif %}
+  <h2>Recent jobs</h2>
+  {% if jobs.len() == 0 %}
+  <p>No jobs started yet.</p>
+  {% else %}
+  <table>
+    <thead>
+      <tr>
+        <th>ID</th>
+        <th>Status</th>
+        <th>Started</th>
+        <th>Finished</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for job in jobs %}
+      <tr>
+        <td class="mono">{{ job.id }}</td>
+        <td>{{ job.status }}</td>
+        <td data-ts="{{ job.started_at }}">{{ job.started_at_display }}</td>
+        <td {% if let Some(ts)=job.finished_at %}data-ts="{{ ts }}" {% endif %}>{{ job.finished_at_display }}</td>
+        <td><a href="/jobs/{{ job.id }}">Open</a></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% endif %}
 </section>
 {% endblock %}
