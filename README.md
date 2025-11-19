@@ -2,10 +2,6 @@
 
 Simple web front-end for managing yt-dlp playlists, archives, and downloaded albums.
 
-<p align="center">
-  <img src="img/screenshot.png" alt="Screenshot of yt-dlp UI" width="720">
-</p>
-
 ### Development
 
 ```bash
